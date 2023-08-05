@@ -264,7 +264,7 @@ void systemTask(void *arg)
       ledSet(SYS_LED, true);
     }
   }
-  DEBUG_PRINT("Free heap: %"PRIu32" bytes\n", xPortGetFreeHeapSize());
+  //DEBUG_PRINT("Free heap: %"PRIu32" bytes\n", xPortGetFreeHeapSize()); COMMENTED OUT
 
   DEBUG_PRINT("\nworkerLoop() started...\n"); // my
   workerLoop();

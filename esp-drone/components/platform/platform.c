@@ -47,7 +47,7 @@ int platformInit(void)
         return false;
     }
 
-    return platformInitHardware();
+        return platformInitHardware();
 }
 
 int platformParseDeviceTypeString(const char *deviceTypeString, char *deviceType)

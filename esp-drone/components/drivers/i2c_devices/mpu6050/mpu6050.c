@@ -170,6 +170,7 @@ bool mpu6050SelfTest()
         DEBUG_PRINTD("mpu6050 Self test [OK].\n");
     } else {
         testStatus = false;
+        DEBUG_PRINTI("mpu6050 Self test [NOT OK].\n");
     }
 
     return testStatus;
