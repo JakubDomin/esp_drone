@@ -37,7 +37,7 @@
 #define DEBUG_MODULE "PWR_DIST"
 #include "debug_cf.h"
 
-static bool motorSetEnable = true; // was false
+static bool motorSetEnable = false;
 
 static struct {
   uint32_t m1;

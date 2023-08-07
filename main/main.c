@@ -36,28 +36,27 @@
 
 #include "mpu6050.h"
 #include "sensors_mpu6050_hm5883L_ms5611.h"
+#include "attitude_controller.h"
+#include "power_distribution.h"
+#include "controller_pid.h"
+
 #define PROXIMITY_ENABLED
 
 
 // Definitions of sensors I2C bus
 #define I2C_DEFAULT_SENSORS_CLOCK_SPEED             400000
 
-//static bool isinit_i2cPort[2] = {0, 0};
-
-// Cost definitions of busses
-// static const I2cDef sensorBusDef = {
-//     .i2cPort            = I2C_NUM_0,
-//     .i2cClockSpeed      = I2C_DEFAULT_SENSORS_CLOCK_SPEED,
-//     .gpioSCLPin         = CONFIG_I2C0_PIN_SCL,
-//     .gpioSDAPin         = CONFIG_I2C0_PIN_SDA,
-//     .gpioPullup         = GPIO_PULLUP_DISABLE,
-// };
-
-// I2cDrv sensorsBus = {
-//     .def                = &sensorBusDef,
-// };
+static struct {
+  uint16_t m1;
+  uint16_t m2;
+  uint16_t m3;
+  uint16_t m4;
+} motorPower;
 
 #define xGyroreference  1
+
+int16_t rollOutput, pitchOutput, yawOutput;
+static control_t control = {.pitch = 0, .roll = 0, .yaw = 0, .thrust = 15000};
 
 void app_main()
 {
@@ -120,29 +119,59 @@ void app_main()
 
     
 
-    int16_t *ax, *ay, *az, *gx, *gy, *gz;
+    int16_t *ax, *ay, *az, *g_pitch, *g_roll, *g_yaw;
     int16_t ax_v, ay_v, az_v, gx_v, gy_v, gz_v;
     ax = &ax_v;
     ay = &ay_v;
     az = &az_v;
-    gx = &gx_v;
-    gy = &gy_v;
-    gz = &gz_v;
+    g_pitch = &gx_v;
+    g_roll = &gy_v;
+    g_yaw = &gz_v;
 
-    for (int i = 0; i < 1000; i ++)
-    {
-        mpu6050GetMotion6(ax, ay, az, gx, gy, gz);
-        DEBUG_PRINTI("mpu6050GetMotion6 results = %d | %d | %d | %d | %d | %d ", *ax, *ay, *az, *gx, *gy, *gz);
-        vTaskDelay(100);
-    }
-
-
+    attitude_t rateDesired = {.pitch = 0, .roll = 0, .yaw = 0, .timestamp = 0};
 
     pwm_timmer_init();
     motorsInit(motorMapDefaultBrushed);
 
-    motorsSetRatio(MOTOR_M1, 50000);
-    motorsSetRatio(MOTOR_M2, 50000);
-    motorsSetRatio(MOTOR_M3, 50000);
-    motorsSetRatio(MOTOR_M4, 50000);
+    int16_t r, p;
+
+    controllerPidInit();
+    if(controllerPidTest())
+    {
+        DEBUG_PRINTI("\npid initialized\n");
+    }
+    else
+    {
+        DEBUG_PRINTI("\npid initialization failed !!!!\n");
+    }
+
+    while(1)
+    {
+        mpu6050GetMotion6(ax, ay, az, g_pitch, g_roll, g_yaw);
+        DEBUG_PRINTI("mpu6050GetMotion6 results = accel_x = %d | accel_y = %d | accel_z = %d | pitch = %d | roll = %d | yaw = %d \n", *ax, *ay, *az, *g_pitch, *g_roll, *g_yaw);
+
+        attitudeControllerCorrectRatePID(*g_pitch, -(*g_roll), *g_yaw,
+                                         rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
+
+        attitudeControllerGetActuatorOutput(&control.roll,
+                                            &control.pitch,
+                                            &control.yaw);
+
+        r = control.roll / 2.0f;
+        p = control.pitch / 2.0f;
+
+        motorPower.m1 =  (control.thrust - r + p + control.yaw);
+        motorPower.m2 =  (control.thrust - r - p - control.yaw);
+        motorPower.m3 =  (control.thrust + r - p + control.yaw);
+        motorPower.m4 =  (control.thrust + r + p - control.yaw);
+        DEBUG_PRINTI("rollOutput = %d }}}} pitchOutput = %d }}}} yawOutput = %d \n", rollOutput, pitchOutput, yawOutput);
+        DEBUG_PRINTI("motorPower_1 = %d || motorPower_2 = %d || motorPower_3 = %d || motorPower_4 = %d \n\n", motorPower.m1, motorPower.m2 ,motorPower.m3 ,motorPower.m4);
+
+        motorsSetRatio(MOTOR_M1, motorPower.m1);
+        motorsSetRatio(MOTOR_M2, motorPower.m2);
+        motorsSetRatio(MOTOR_M3, motorPower.m3);
+        motorsSetRatio(MOTOR_M4, motorPower.m4);
+
+        vTaskDelay(100);
+    }
 }
