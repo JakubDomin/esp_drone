@@ -56,7 +56,6 @@ static struct {
 #define xGyroreference  1
 
 int16_t rollOutput, pitchOutput, yawOutput;
-static control_t control = {.pitch = 0, .roll = 0, .yaw = 0, .thrust = 15000};
 
 void app_main()
 {
@@ -128,8 +127,14 @@ void app_main()
     g_roll = &gy_v;
     g_yaw = &gz_v;
 
+    static control_t control = {.pitch = 0, .roll = 0, .yaw = 0, .thrust = 25000};
     attitude_t rateDesired = {.pitch = 0, .roll = 0, .yaw = 0, .timestamp = 0};
-
+    attitude_t attitudeDesired = rateDesired;
+    setpoint_t setPoint = {.mode.yaw = modeVelocity, .mode.x = modeDisable, .mode.y = modeDisable,
+                           .mode.roll = modeVelocity, .mode.pitch = modeVelocity,
+                           .attitudeRate = rateDesired};
+    sensorData_t sensors;
+    state_t state;
     pwm_timmer_init();
     motorsInit(motorMapDefaultBrushed);
 
@@ -139,7 +144,7 @@ void app_main()
     if(controllerPidTest())
     {
         DEBUG_PRINTI("\npid initialized\n");
-    }
+        }
     else
     {
         DEBUG_PRINTI("\npid initialization failed !!!!\n");
@@ -147,15 +152,28 @@ void app_main()
 
     while(1)
     {
-        mpu6050GetMotion6(ax, ay, az, g_pitch, g_roll, g_yaw);
+        mpu6050GetMotion6(ax, ay, az, g_roll, g_pitch, g_yaw); // chyba git
+        sensors.acc.x = *ax; sensors.acc.y = *ay; sensors.acc.z = *az;
+        sensors.gyro.x = *g_pitch; sensors.gyro.y = *g_roll; sensors.gyro.z = *g_yaw;
+        state.attitude.pitch = *g_pitch; state.attitude.roll = *g_roll; state.attitude.yaw = *g_yaw; 
         DEBUG_PRINTI("mpu6050GetMotion6 results = accel_x = %d | accel_y = %d | accel_z = %d | pitch = %d | roll = %d | yaw = %d \n", *ax, *ay, *az, *g_pitch, *g_roll, *g_yaw);
 
-        attitudeControllerCorrectRatePID(*g_pitch, -(*g_roll), *g_yaw,
-                                         rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
+        attitudeControllerCorrectAttitudePID(state.attitude.roll, state.attitude.pitch, state.attitude.yaw,
+                                             attitudeDesired.roll, attitudeDesired.pitch, attitudeDesired.yaw,
+                                             &rateDesired.roll, &rateDesired.pitch, &rateDesired.yaw);
 
-        attitudeControllerGetActuatorOutput(&control.roll,
-                                            &control.pitch,
-                                            &control.yaw);
+        // attitudeControllerCorrectRatePID(*g_pitch, -(*g_roll), *g_yaw,
+        //                                  rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
+
+        // attitudeControllerGetActuatorOutput(&control.roll,
+        //                                     &control.pitch,
+        //                                     &control.yaw);
+
+        //controllerPid(&control, &setPoint, &sensors, &state, 10);
+
+        control.pitch = rateDesired.pitch;
+        control.roll = rateDesired.roll;
+        control.yaw = rateDesired.yaw;
 
         r = control.roll / 2.0f;
         p = control.pitch / 2.0f;
@@ -164,6 +182,7 @@ void app_main()
         motorPower.m2 =  (control.thrust - r - p - control.yaw);
         motorPower.m3 =  (control.thrust + r - p + control.yaw);
         motorPower.m4 =  (control.thrust + r + p - control.yaw);
+        DEBUG_PRINTI("rateDesired.roll = %f ||||| rateDesired.pitch = %f ||||| rateDesired.yaw = %f \n", rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
         DEBUG_PRINTI("rollOutput = %d }}}} pitchOutput = %d }}}} yawOutput = %d \n", rollOutput, pitchOutput, yawOutput);
         DEBUG_PRINTI("motorPower_1 = %d || motorPower_2 = %d || motorPower_3 = %d || motorPower_4 = %d \n\n", motorPower.m1, motorPower.m2 ,motorPower.m3 ,motorPower.m4);
 
@@ -172,6 +191,6 @@ void app_main()
         motorsSetRatio(MOTOR_M3, motorPower.m3);
         motorsSetRatio(MOTOR_M4, motorPower.m4);
 
-        vTaskDelay(100);
+        // vTaskDelay(300);
     }
 }
