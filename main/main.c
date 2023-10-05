@@ -80,7 +80,7 @@
 #include "debug_cf.h"
 #include "static_mem.h"
 #include "cfassert.h"
-
+#include <time.h>
 
 
 #define PROXIMITY_ENABLED
@@ -214,104 +214,104 @@ int16_t rollOutput, pitchOutput, yawOutput;
 
 
 
-static void main_loop_task(void* param) {
+// static void main_loop_task(void* param) {
 
-  int16_t *ax, *ay, *az, *g_pitch, *g_roll, *g_yaw;
-  int16_t ax_v, ay_v, az_v, gx_v, gy_v, gz_v;
-  static float pitchAngle, rollAngle, yawAngle;
-  static int32_t previousTime, currentTime, elapsedTime;
-  ax = &ax_v;
-  ay = &ay_v;
-  az = &az_v;
-  g_pitch = &gx_v;
-  g_roll = &gy_v;
-  g_yaw = &gz_v;
+//   int16_t *ax, *ay, *az, *g_pitch, *g_roll, *g_yaw;
+//   int16_t ax_v, ay_v, az_v, gx_v, gy_v, gz_v;
+//   static float pitchAngle, rollAngle, yawAngle;
+//   static int32_t previousTime, currentTime, elapsedTime;
+//   ax = &ax_v;
+//   ay = &ay_v;
+//   az = &az_v;
+//   g_pitch = &gx_v;
+//   g_roll = &gy_v;
+//   g_yaw = &gz_v;
 
-  static control_t control = {.pitch = 0, .roll = 0, .yaw = 0, .thrust = 20000};
-  attitude_t rateDesired = {.pitch = 0, .roll = 0, .yaw = 0, .timestamp = 0};
-  attitude_t attitudeDesired = rateDesired;
-  setpoint_t setPoint = {.mode.yaw = modeVelocity, .mode.x = modeDisable, .mode.y = modeDisable,
-                          .mode.roll = modeVelocity, .mode.pitch = modeVelocity,
-                          .attitudeRate = rateDesired};
-  attitude_t EulerrateDesired = {.pitch = 0, .roll = 0, .yaw = 0, .timestamp = 0};
-  sensorData_t sensors;
-  state_t state;
-  BiasObj bias;
-  int16_t r, p;
+//   static control_t control = {.pitch = 0, .roll = 0, .yaw = 0, .thrust = 20000};
+//   attitude_t rateDesired = {.pitch = 0, .roll = 0, .yaw = 0, .timestamp = 0};
+//   attitude_t attitudeDesired = rateDesired;
+//   setpoint_t setPoint = {.mode.yaw = modeVelocity, .mode.x = modeDisable, .mode.y = modeDisable,
+//                           .mode.roll = modeVelocity, .mode.pitch = modeVelocity,
+//                           .attitudeRate = rateDesired};
+//   attitude_t EulerrateDesired = {.pitch = 0, .roll = 0, .yaw = 0, .timestamp = 0};
+//   sensorData_t sensors;
+//   state_t state;
+//   BiasObj bias;
+//   int16_t r, p;
 
-  while(1)
-  {
-    mpu6050GetMotion6(ax, ay, az, g_roll, g_pitch, g_yaw); // chyba git
-    sensors.acc.x = *ax / bitsToG16;
-    sensors.acc.y = *ay / bitsToG16;
-    sensors.acc.z = *az / bitsToG16;
-    sensors.gyro.x = *g_pitch / bitsToDeg2000;
-    sensors.gyro.y = *g_roll / bitsToDeg2000;
-    sensors.gyro.z = *g_yaw / bitsToDeg2000;
-    // measure time for gyroscope deg/s to deg conversion
-    previousTime = currentTime;
-    currentTime = T2M(xTaskGetTickCount()); // get current time in miliseconds
-    elapsedTime = (currentTime - previousTime) / 1000; // get elapsed time in seconds
+//   while(1)
+//   {
+//     mpu6050GetMotion6(ax, ay, az, g_roll, g_pitch, g_yaw); // chyba git
+//     sensors.acc.x = *ax / bitsToG16;
+//     sensors.acc.y = *ay / bitsToG16;
+//     sensors.acc.z = *az / bitsToG16;
+//     sensors.gyro.x = *g_pitch / bitsToDeg2000;
+//     sensors.gyro.y = *g_roll / bitsToDeg2000;
+//     sensors.gyro.z = *g_yaw / bitsToDeg2000;
+//     // measure time for gyroscope deg/s to deg conversion
+//     previousTime = currentTime;
+//     currentTime = T2M(xTaskGetTickCount()); // get current time in miliseconds
+//     elapsedTime = (currentTime - previousTime) / 1000; // get elapsed time in seconds
 
-    // gyroscope deg/s to deg conversion
-    pitchAngle = pitchAngle + sensors.gyro.x * elapsedTime;
-    rollAngle = rollAngle + sensors.gyro.y * elapsedTime;
-    yawAngle = yawAngle + sensors.gyro.z * elapsedTime;
+//     // gyroscope deg/s to deg conversion
+//     pitchAngle = pitchAngle + sensors.gyro.x * elapsedTime;
+//     rollAngle = rollAngle + sensors.gyro.y * elapsedTime;
+//     yawAngle = yawAngle + sensors.gyro.z * elapsedTime;
 
-    // correct gyro error
-    // sensors.gyro.x = (sensors.gyro.x - bias.bias.x) * SENSORS_DEG_PER_LSB_CFG;
-    // sensors.gyro.y = (sensors.gyro.y - bias.bias.y) * SENSORS_DEG_PER_LSB_CFG;
-    // sensors.gyro.z = (sensors.gyro.z - bias.bias.z) * SENSORS_DEG_PER_LSB_CFG;
-    // applyAxis3fLpf((lpf2pData *)(&gyroLpf), &sensors.gyro); // LPF Filter, to avoid high-frequency interference
+//     // correct gyro error
+//     // sensors.gyro.x = (sensors.gyro.x - bias.bias.x) * SENSORS_DEG_PER_LSB_CFG;
+//     // sensors.gyro.y = (sensors.gyro.y - bias.bias.y) * SENSORS_DEG_PER_LSB_CFG;
+//     // sensors.gyro.z = (sensors.gyro.z - bias.bias.z) * SENSORS_DEG_PER_LSB_CFG;
+//     // applyAxis3fLpf((lpf2pData *)(&gyroLpf), &sensors.gyro); // LPF Filter, to avoid high-frequency interference
 
-    state.attitude.pitch = sensors.gyro.x;
-    state.attitude.roll = sensors.gyro.y;
-    state.attitude.yaw = sensors.gyro.z;
+//     state.attitude.pitch = sensors.gyro.x;
+//     state.attitude.roll = sensors.gyro.y;
+//     state.attitude.yaw = sensors.gyro.z;
 
-    // float yaw = atan2f(2*(this->q[1]*this->q[2]+this->q[0]*this->q[3]) , this->q[0]*this->q[0] + this->q[1]*this->q[1] - this->q[2]*this->q[2] - this->q[3]*this->q[3]);
-    // float pitch = asinf(-2*(this->q[1]*this->q[3] - this->q[0]*this->q[2]));
-    // float roll = atan2f(2*(this->q[2]*this->q[3]+this->q[0]*this->q[1]) , this->q[0]*this->q[0] - this->q[1]*this->q[1] - this->q[2]*this->q[2] + this->q[3]*this->q[3]);
+//     // float yaw = atan2f(2*(this->q[1]*this->q[2]+this->q[0]*this->q[3]) , this->q[0]*this->q[0] + this->q[1]*this->q[1] - this->q[2]*this->q[2] - this->q[3]*this->q[3]);
+//     // float pitch = asinf(-2*(this->q[1]*this->q[3] - this->q[0]*this->q[2]));
+//     // float roll = atan2f(2*(this->q[2]*this->q[3]+this->q[0]*this->q[1]) , this->q[0]*this->q[0] - this->q[1]*this->q[1] - this->q[2]*this->q[2] + this->q[3]*this->q[3]);
 
-    DEBUG_PRINTI("mpu6050GetMotion6 results = accel_x = %f | accel_y = %f | accel_z = %f | pitch = %f | roll = %f | yaw = %f ___> elapsedTime = %ld\n",
-                  sensors.acc.x, sensors.acc.y, sensors.acc.z, pitchAngle, rollAngle, yawAngle, elapsedTime);
+//     DEBUG_PRINTI("mpu6050GetMotion6 results = accel_x = %f | accel_y = %f | accel_z = %f | pitch = %f | roll = %f | yaw = %f ___> elapsedTime = %ld\n",
+//                   sensors.acc.x, sensors.acc.y, sensors.acc.z, pitchAngle, rollAngle, yawAngle, elapsedTime);
 
-    // attitudeControllerCorrectAttitudePID(state.attitude.roll, state.attitude.pitch, state.attitude.yaw,
-    //                                      attitudeDesired.roll, attitudeDesired.pitch, attitudeDesired.yaw,
-    //                                      &rateDesired.roll, &rateDesired.pitch, &rateDesired.yaw);
+//     // attitudeControllerCorrectAttitudePID(state.attitude.roll, state.attitude.pitch, state.attitude.yaw,
+//     //                                      attitudeDesired.roll, attitudeDesired.pitch, attitudeDesired.yaw,
+//     //                                      &rateDesired.roll, &rateDesired.pitch, &rateDesired.yaw);
 
-    attitudeControllerCorrectRatePID(*g_pitch, -(*g_roll), *g_yaw,
-                                      rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
+//     attitudeControllerCorrectRatePID(*g_pitch, -(*g_roll), *g_yaw,
+//                                       rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
 
-    attitudeControllerGetActuatorOutput(&control.roll,
-                                        &control.pitch,
-                                        &control.yaw);
+//     attitudeControllerGetActuatorOutput(&control.roll,
+//                                         &control.pitch,
+//                                         &control.yaw);
 
-    // controllerPid(&control, &setPoint, &sensors, &state, 10);
+//     // controllerPid(&control, &setPoint, &sensors, &state, 10);
 
-    // control.pitch = rateDesired.pitch;
-    // control.roll = rateDesired.roll;
-    // control.yaw = rateDesired.yaw;
+//     // control.pitch = rateDesired.pitch;
+//     // control.roll = rateDesired.roll;
+//     // control.yaw = rateDesired.yaw;
 
-    r = control.roll / 2.0f;
-    p = control.pitch / 2.0f;
+//     r = control.roll / 2.0f;
+//     p = control.pitch / 2.0f;
 
-    motorPower.m1 = (control.thrust - r + p + control.yaw);
-    motorPower.m2 = (control.thrust - r - p - control.yaw);
-    motorPower.m3 = (control.thrust + r - p + control.yaw);
-    motorPower.m4 = (control.thrust + r + p - control.yaw);
-    DEBUG_PRINTI("rateDesired.roll = %f ||||| rateDesired.pitch = %f ||||| rateDesired.yaw = %f \n", rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
-    DEBUG_PRINTI("rollOutput = %d }}}} pitchOutput = %d }}}} yawOutput = %d \n", rollOutput, pitchOutput, yawOutput);
-    DEBUG_PRINTI("motorPower_1 = %d || motorPower_2 = %d || motorPower_3 = %d || motorPower_4 = %d \n\n", motorPower.m1, motorPower.m2, motorPower.m3, motorPower.m4);
+//     motorPower.m1 = (control.thrust - r + p + control.yaw);
+//     motorPower.m2 = (control.thrust - r - p - control.yaw);
+//     motorPower.m3 = (control.thrust + r - p + control.yaw);
+//     motorPower.m4 = (control.thrust + r + p - control.yaw);
+//     DEBUG_PRINTI("rateDesired.roll = %f ||||| rateDesired.pitch = %f ||||| rateDesired.yaw = %f \n", rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
+//     DEBUG_PRINTI("rollOutput = %d }}}} pitchOutput = %d }}}} yawOutput = %d \n", rollOutput, pitchOutput, yawOutput);
+//     DEBUG_PRINTI("motorPower_1 = %d || motorPower_2 = %d || motorPower_3 = %d || motorPower_4 = %d \n\n", motorPower.m1, motorPower.m2, motorPower.m3, motorPower.m4);
 
-    motorsSetRatio(MOTOR_M1, motorPower.m1);
-    motorsSetRatio(MOTOR_M2, motorPower.m2);
-    motorsSetRatio(MOTOR_M3, motorPower.m3);
-    motorsSetRatio(MOTOR_M4, motorPower.m4);
+//     motorsSetRatio(MOTOR_M1, motorPower.m1);
+//     motorsSetRatio(MOTOR_M2, motorPower.m2);
+//     motorsSetRatio(MOTOR_M3, motorPower.m3);
+//     motorsSetRatio(MOTOR_M4, motorPower.m4);
 
-    vTaskDelay(300);
+//     vTaskDelay(300);
     
-  }
-}
+//   }
+// }
 
 
 void app_main()
@@ -424,12 +424,109 @@ void app_main()
 
     //STATIC_MEM_TASK_CREATE(main_loop_task, main_loop_task, "MAIN_LOOP_TASK", NULL, 2);
     //xTaskCreate(main_loop_task, "main_loop_task", 2000, NULL, 2, NULL);
-    StackType_t xStack[2000];
-    StaticTask_t xTaskBuffer;
-    xTaskCreateStatic(main_loop_task, "main_loop_task", 2000, (void *) 1, 2, xStack, &xTaskBuffer);
+    // StackType_t xStack[2000];
+    // StaticTask_t xTaskBuffer;
+    // xTaskCreateStatic(main_loop_task, "main_loop_task", 2000, (void *) 1, 2, xStack, &xTaskBuffer);
 
-    vTaskStartScheduler();
-    while (1)
-    {
-    }
+    // vTaskStartScheduler();
+  int16_t *ax, *ay, *az, *g_pitch, *g_roll, *g_yaw;
+  int16_t ax_v, ay_v, az_v, gx_v, gy_v, gz_v;
+  static float pitchAngle, rollAngle, yawAngle;
+  // static int32_t previousTime, currentTime, elapsedTime;
+  clock_t previousTime = 0;
+  clock_t currentTime = 0;
+  float elapsedTime;
+
+  ax = &ax_v;
+  ay = &ay_v;
+  az = &az_v;
+  g_pitch = &gx_v;
+  g_roll = &gy_v;
+  g_yaw = &gz_v;
+
+  static control_t control = {.pitch = 0, .roll = 0, .yaw = 0, .thrust = 20000};
+  attitude_t rateDesired = {.pitch = 0, .roll = 0, .yaw = 0, .timestamp = 0};
+  attitude_t attitudeDesired = rateDesired;
+  setpoint_t setPoint = {.mode.yaw = modeVelocity, .mode.x = modeDisable, .mode.y = modeDisable,
+                          .mode.roll = modeVelocity, .mode.pitch = modeVelocity,
+                          .attitudeRate = rateDesired};
+  attitude_t EulerrateDesired = {.pitch = 0, .roll = 0, .yaw = 0, .timestamp = 0};
+  sensorData_t sensors;
+  state_t state;
+  BiasObj bias;
+  int16_t r, p;
+
+  while(1)
+  {
+    mpu6050GetMotion6(ax, ay, az, g_roll, g_pitch, g_yaw); // chyba git
+    sensors.acc.x = *ax / bitsToG16;
+    sensors.acc.y = *ay / bitsToG16;
+    sensors.acc.z = *az / bitsToG16;
+    sensors.gyro.x = *g_pitch / bitsToDeg2000;
+    sensors.gyro.y = *g_roll / bitsToDeg2000;
+    sensors.gyro.z = *g_yaw / bitsToDeg2000;
+    // measure time for gyroscope deg/s to deg conversion
+    previousTime = currentTime;
+    // currentTime = T2M(xTaskGetTickCount()); // get current time in miliseconds
+    currentTime = clock();
+    //elapsedTime = (currentTime - previousTime) / 1000; // get elapsed time in seconds
+    elapsedTime = ((float)(currentTime - previousTime)) / CLOCKS_PER_SEC; // in seconds
+    // gyroscope deg/s to deg conversion
+    pitchAngle = pitchAngle + sensors.gyro.x * elapsedTime;
+    rollAngle = rollAngle + sensors.gyro.y * elapsedTime;
+    yawAngle = yawAngle + sensors.gyro.z * elapsedTime;
+
+    // correct gyro error
+    // sensors.gyro.x = (sensors.gyro.x - bias.bias.x) * SENSORS_DEG_PER_LSB_CFG;
+    // sensors.gyro.y = (sensors.gyro.y - bias.bias.y) * SENSORS_DEG_PER_LSB_CFG;
+    // sensors.gyro.z = (sensors.gyro.z - bias.bias.z) * SENSORS_DEG_PER_LSB_CFG;
+    // applyAxis3fLpf((lpf2pData *)(&gyroLpf), &sensors.gyro); // LPF Filter, to avoid high-frequency interference
+
+    state.attitude.pitch = sensors.gyro.x;
+    state.attitude.roll = sensors.gyro.y;
+    state.attitude.yaw = sensors.gyro.z;
+
+    // float yaw = atan2f(2*(this->q[1]*this->q[2]+this->q[0]*this->q[3]) , this->q[0]*this->q[0] + this->q[1]*this->q[1] - this->q[2]*this->q[2] - this->q[3]*this->q[3]);
+    // float pitch = asinf(-2*(this->q[1]*this->q[3] - this->q[0]*this->q[2]));
+    // float roll = atan2f(2*(this->q[2]*this->q[3]+this->q[0]*this->q[1]) , this->q[0]*this->q[0] - this->q[1]*this->q[1] - this->q[2]*this->q[2] + this->q[3]*this->q[3]);
+
+    DEBUG_PRINTI("mpu6050GetMotion6 results = accel_x = %f | accel_y = %f | accel_z = %f | pitch = %f | roll = %f | yaw = %f ___> elapsedTime = %f\n",
+                  sensors.acc.x, sensors.acc.y, sensors.acc.z, pitchAngle, rollAngle, yawAngle, elapsedTime);
+
+    // attitudeControllerCorrectAttitudePID(state.attitude.roll, state.attitude.pitch, state.attitude.yaw,
+    //                                      attitudeDesired.roll, attitudeDesired.pitch, attitudeDesired.yaw,
+    //                                      &rateDesired.roll, &rateDesired.pitch, &rateDesired.yaw);
+
+    attitudeControllerCorrectRatePID(*g_pitch, -(*g_roll), *g_yaw,
+                                      rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
+
+    attitudeControllerGetActuatorOutput(&control.roll,
+                                        &control.pitch,
+                                        &control.yaw);
+
+    // controllerPid(&control, &setPoint, &sensors, &state, 10);
+
+    // control.pitch = rateDesired.pitch;
+    // control.roll = rateDesired.roll;
+    // control.yaw = rateDesired.yaw;
+
+    r = control.roll / 2.0f;
+    p = control.pitch / 2.0f;
+
+    motorPower.m1 = (control.thrust - r + p + control.yaw);
+    motorPower.m2 = (control.thrust - r - p - control.yaw);
+    motorPower.m3 = (control.thrust + r - p + control.yaw);
+    motorPower.m4 = (control.thrust + r + p - control.yaw);
+    DEBUG_PRINTI("rateDesired.roll = %f ||||| rateDesired.pitch = %f ||||| rateDesired.yaw = %f \n", rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
+    DEBUG_PRINTI("rollOutput = %d }}}} pitchOutput = %d }}}} yawOutput = %d \n", rollOutput, pitchOutput, yawOutput);
+    DEBUG_PRINTI("motorPower_1 = %d || motorPower_2 = %d || motorPower_3 = %d || motorPower_4 = %d \n\n", motorPower.m1, motorPower.m2, motorPower.m3, motorPower.m4);
+
+    motorsSetRatio(MOTOR_M1, motorPower.m1);
+    motorsSetRatio(MOTOR_M2, motorPower.m2);
+    motorsSetRatio(MOTOR_M3, motorPower.m3);
+    motorsSetRatio(MOTOR_M4, motorPower.m4);
+
+    vTaskDelay(300);
+    
+  }
 }
